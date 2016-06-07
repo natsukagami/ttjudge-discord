@@ -19,8 +19,9 @@ var router = new EventEmitter();
 var Queue = require('./queue');
 var Drive = require('./drive');
 
-var lastSubmissions = [];
+var lastSubmissions = {};
 var subsBy = {};
+var allsubs = {};
 
 var commands = {
 	'!help': 'What are you reading lol',
@@ -32,7 +33,8 @@ var commands = {
 	'!verdict {id}': 'See the verdict of the submission with provided id',
 	'!details {id}': 'See the detailed verdict of the submission with provided id',
 	'!download {id}': 'PM this to me to get a submission you submitted',
-	'!mysubs': 'List all your past submissions'
+	'!mysubs': 'List all your past submissions',
+	'!allsubs': 'List most recent submissions'
 };
 
 module.exports = function(app) {
@@ -140,6 +142,7 @@ module.exports = function(app) {
 				Queue.add_submission(submission);
 				if (!subsBy[user.id]) subsBy[user.id] = [];
 				subsBy[user.id].unshift(submission.id);
+				allsubs.unshift(submission.id);
 				app.reply(message, 'Your submission (id = ' + md.bold(submission.id + '') + ', problem = ' + md.bold(submission.problem.name) + ', submit time = ' + (new Date()) + ') is now in queue~');
 				app.sendMessage(app.broadcastChannel, submission.getTitle() + ' is now in queue!');
 			});
@@ -268,6 +271,21 @@ module.exports = function(app) {
 		var mes = 'Your past submissions:\n\n';
 		subsBy[user].forEach(function(id) {
 			mes += ' ' + md.bold('#' + id) + ' for problem ' + md.bold(app.submissions[id].problem.name) + '\n';
+		});
+		app.stopTyping(message).then(function() {
+			app.sendMessage(message, mes);
+		});
+	});
+
+	router.on('!allsubs', function(message) {
+		if (!allsubs.length) {
+			app.sendMessage(message, 'Why am I so lonely? T.T');
+			return;
+		}
+		app.startTyping(message);
+		var mes = 'Most recent submissions:\n\n';
+		allsubs.slice(0, Math.max(10, allsubs.length)).forEach(function(id) {
+			mes += ' ' + app.submissions[id].getTitle() + '\n';
 		});
 		app.stopTyping(message).then(function() {
 			app.sendMessage(message, mes);
