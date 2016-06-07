@@ -58,13 +58,19 @@ module.exports = function(app) {
 	});
 
 	function listProblems(message, args) {
+		if (!allsubs.length) {
+			app.sendMessage(message, 'Why am I so lonely? T.T');
+			return;
+		}
 		app.startTyping(message);
 		app.sendMessage(message, 'Problems currently online\n\n').then(function() {
 			var mes = '';
 			return Promise.all(Object.keys(app.problems).map(function(pid, id, arr) {
 				mes += '  ' + app.problems[pid].getTitle() + '\n';
 				if (id % 10 === 9 || id === arr.length - 1) {
-					app.sendMessage(message, mes); mes = '';
+					if (mes !== '') {
+						return app.sendMessage(message, mes), mes = '';
+					}
 				}
 			}))
 			.then(function() {
