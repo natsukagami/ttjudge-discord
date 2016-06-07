@@ -358,13 +358,15 @@ module.exports = function(app) {
 			}
 			app.sendMessage(message, 'Attempting to download...');
 			Drive.getFile(args[1]).then(function(stream) {
+				var dlf = temp.createWriteStream();
 				var file = unzip.Extract({ path: path.join(__dirname, '../problems') });
-				stream.pipe(file);
+				stream.pipe(dlf);
 				stream.on('error', function() {
 					app.sendMessage(message, 'Can\'t download file :(');
 				});
 				stream.on('end', function() {
 					app.sendMessage(message, 'Downloaded file! Now extracting...');
+					fs.createWriteStream(dlf.path).pipe(file);
 				});
 				file.on('close', function() {
 					app.sendMessage(message, 'Download completed!');
