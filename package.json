@@ -1,0 +1,30 @@
+{
+  "name": "ttj2-discord",
+  "version": "0.0.0",
+  "description": "A discord bot that runs as an online judge for competitive programming",
+  "main": "index.js",
+  "dependencies": {
+    "bluebird": "^3.4.0",
+    "discord.js": "hydrabolt/discord.js#indev",
+    "download": "^5.0.0",
+    "fs-extra": "^0.30.0",
+    "google-auth-library": "^0.9.8",
+    "googleapis": "^7.1.0",
+    "jsonminify": "^0.4.1",
+    "markdown-creator": "^0.1.5",
+    "promise-queue": "^2.2.3",
+    "temp": "^0.8.3",
+    "unzip": "^0.1.11",
+    "uuid": "^2.0.2",
+    "walk": "^2.3.9"
+  },
+  "devDependencies": {
+    "eslint": "^2.11.1"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node ./node_modules/mocha/bin/mocha -r"
+  },
+  "author": "Natsu Kagami",
+  "license": "MIT"
+}
