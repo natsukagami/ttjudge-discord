@@ -2,6 +2,7 @@ var fs = Promise.promisifyAll(require('fs-extra'));
 fs.walk = require('walk').walk;
 var path = require('path');
 var md = require('markdown-creator');
+var kjudge = require('kjudge-api');
 
 module.exports = function(app) {
 	/**
@@ -25,6 +26,11 @@ module.exports = function(app) {
 			.then(function() {
 				return inst._parseTests();
 			})
+			.then(() => {
+				// Let's convert the problem's metadata a little so that it matches
+				// kjudge-api's requirements
+				this.Problem = new kjudge.Problem();
+			})
 			.then(function() {
 				inst.ready = true;
 			})
@@ -42,6 +48,23 @@ module.exports = function(app) {
 		this.timeLimit = config.TIMEOUT;
 		this.memoryLimit = config.MEMLIMIT;
 		this.checker = (config.CHECKER ? path.join(this.directory, config.CHECKER_FILE) : false);
+		/**
+		 * Some notes about the scoreType now
+		 * Simple as it was, the result was not enough. This time, we provide a much better scoring
+		 * module. The tests now come with a "subtask" option, which brings us to just 3 types of
+		 * scores:
+		 *  - single: For this scoring type, subtasks are not considered for scores. Each test should have
+		 *  its own score, and points are awarded for each (partially or fully) correct test. This is
+		 *  familiar to the old "oi" type, and all old "oi" type problems will be converted to this type.
+		 *  - subtaskMin: Subtasks have their meaning now. For each test, the grader should return a number
+		 *  between 0.0 and 1.0, which will be considered the "subtask ratio". A subtask's ratio is the
+		 *  MINIMUM ratio scored for each test in the subtask. The subtask's score is then calculated by
+		 *  multiplying the subtask ratio with the sum of all tests' possible scores. If the ratio is only
+		 *  0 or 1, and there's only one subtask, it should sound just like the old "acm" scoring module.
+		 *  - subtaskMul: This scoring type is just similar to subtaskMin, however the ratio, rather than being
+		 *  the MINIMUM, becomes the PRODUCT of all tests' ratios. This way, multiple partially scored tests
+		 *  affects the subtask's score even more.
+		 */
 		this.scoreType = config.SCORE_TYPE;
 		this.score = config.SCORE;
 		this.inputMatch = config.INPUT_MATCH;

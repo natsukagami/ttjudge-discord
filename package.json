@@ -22,6 +22,7 @@
     "eslint": "^2.11.1"
   },
   "scripts": {
+    "build": "npm install && cd node_modules/kjudge-api && npm install && npm run build",
     "start": "node index.js",
     "test": "node ./node_modules/mocha/bin/mocha -r"
   },
