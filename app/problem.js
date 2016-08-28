@@ -29,7 +29,37 @@ module.exports = function(app) {
 			.then(() => {
 				// Let's convert the problem's metadata a little so that it matches
 				// kjudge-api's requirements
-				this.Problem = new kjudge.Problem();
+				return Promise.all([
+					(!this.checker ? Promise.resolve('') : fs.readFileAsync(this.checker, 'utf8')),
+					(!this.header  ? Promise.resolve('') : fs.readFileAsync(this.header , 'utf8')),
+					(!this.grader  ? Promise.resolve('') : fs.readFileAsync(this.grader , 'utf8'))
+				]).then((reads) => {
+					if (this.scoreType === 'oi' || this.scoreType === 'acm') {
+						this.score = 100;
+						// Old type detected
+						this.scoreType = (this.scoreType === 'oi' ? 'single' : 'subtaskMin');
+						this.testInfo = this.testcases.map((item, idx) => {
+							return new kjudge.Test(
+								idx,
+								item[0],
+								item[1],
+								this.timeLimit,
+								this.memoryLimit,
+								this.score / this.testcases.length,
+								0
+							);
+						});
+					}
+					this.Problem = new kjudge.Problem(
+						this.name,
+						this.submitType,
+						this.scoreType,
+						reads[0],
+						reads[1],
+						reads[2]
+					);
+					this.testInfo.forEach((item) => { this.Problem.pushTest(item); });
+				});
 			})
 			.then(function() {
 				inst.ready = true;
@@ -48,6 +78,9 @@ module.exports = function(app) {
 		this.timeLimit = config.TIMEOUT;
 		this.memoryLimit = config.MEMLIMIT;
 		this.checker = (config.CHECKER ? path.join(this.directory, config.CHECKER_FILE) : false);
+		this.header = (config.HEADER ? path.join(this.directory, config.HEADER) : false);
+		this.grader = (config.GRADER ? path.join(this.directory, config.GRADER): false);
+		this.testInfo = (config.TESTS ? config.TESTS : false);
 		/**
 		 * Some notes about the scoreType now
 		 * Simple as it was, the result was not enough. This time, we provide a much better scoring
@@ -66,6 +99,7 @@ module.exports = function(app) {
 		 *  affects the subtask's score even more.
 		 */
 		this.scoreType = config.SCORE_TYPE;
+		this.submitType = (config.SUBMIT_TYPE ? config.SUBMIT_TYPE : 'single');
 		this.score = config.SCORE;
 		this.inputMatch = config.INPUT_MATCH;
 		this.outputMatch = config.OUTPUT_MATCH;
@@ -86,7 +120,7 @@ module.exports = function(app) {
 				var outpath = inpath.replace(inputRegex, inst.outputMatch);
 				fs.statAsync(path.join(inst.directory, outpath))
 					.then(function(stats) {
-						if (stats.isFile()) inst.testcases.push([path.join(inst.directory, inpath), path.join(inst.directory, outpath)]);
+						if (stats.isFile()) inst.testcases.push([inpath, outpath]);
 					})
 					.catch(function(err) {
 						// Pass

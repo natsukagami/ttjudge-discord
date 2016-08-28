@@ -11,13 +11,20 @@ var app = new Discordie({
 });
 app.Config = JSON.parse(jsonminify(fs.readFileSync('config.json', 'utf8')));
 app.broadcastChannel = app.Config.connection.broadcast;
+app.reply = app.sendMessage = (origin, message) => {
+	if (typeof origin === 'string') {
+		origin = app.Channels.get(origin);
+	} else origin = origin.channel;
+	return origin.sendMessage(message);
+};
+app.connect({token: app.Config.connection.token});
+app.startTyping = (origin) => {
+	return origin.channel.sendTyping();
+};
 
 var Problem = require('./app/problem')(app);
-// app.problems = {};
-// app.submissions = {};
-//
-// require('./app/listeners')(app);
-//
-// app.loginWithToken(app.Config.connection.token).then(function() {
-// 	console.log('Logged in!');
-// });
+
+app.problems = {};
+app.submissions = {};
+
+require('./app/listeners')(app);

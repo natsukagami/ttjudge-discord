@@ -11,6 +11,7 @@
     "google-auth-library": "^0.9.8",
     "googleapis": "^7.1.0",
     "jsonminify": "^0.4.1",
+    "kjudge-api": "git+https://github.com/natsukagami/kjudge-api.git",
     "markdown-creator": "^0.1.5",
     "promise-queue": "^2.2.3",
     "temp": "^0.8.3",

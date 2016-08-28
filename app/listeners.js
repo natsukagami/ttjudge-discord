@@ -1,35 +1,33 @@
-var EventEmitter = require('events');
-var path = require('path');
-var uuid = require('uuid');
-var fs = Promise.promisifyAll(require('fs-extra'), {multiArgs: true});
-var md = require('markdown-creator');
-var cp = Promise.promisifyAll(require('child_process'));
-var temp = Promise.promisifyAll(require('temp')).track();
-var unzip = require('unzip');
-var download = function download(url, dest) {
+const EventEmitter = require('events');
+const path = require('path');
+const uuid = require('uuid');
+const fs = Promise.promisifyAll(require('fs-extra'), {multiArgs: true});
+const md = require('markdown-creator');
+const cp = Promise.promisifyAll(require('child_process'));
+const temp = Promise.promisifyAll(require('temp')).track();
+const unzip = require('unzip');
+const download = function download(url, dest) {
 	return cp.execAsync('wget ' + url, {cwd: dest});
 };
 md.inlineCode = function(text) {
 	return '`' + text + '`';
 };
 
-var dir = temp.mkdirSync();
+let dir = temp.mkdirSync();
 
-var router = new EventEmitter();
-var Queue = require('./queue');
-var Drive = require('./drive');
+let router = new EventEmitter();
+let Drive = require('./drive');
 
-var lastSubmissions = {};
-var subsBy = {};
-var allsubs = {};
+let lastSubmissions = {};
+let subsBy = {};
+let allsubs = [];
 
-var commands = {
+let commands = {
 	'!help': 'What are you reading lol',
 	'!submit [problem]': 'PM this to me, with an attachment that is your code. Problem name is optional, if it\'s not provided it will be guessed from the file\'s name. You can even omit the `!submit` part',
 	'!problems': 'List all problems available to judging',
 	'!problem [name]': 'See the time and memory limits of a problem',
 	'!statements [name]': 'Get the statements of a problem',
-	'!queue': 'List the current judging queue',
 	'!verdict {id}': 'See the verdict of the submission with provided id',
 	'!details {id}': 'See the detailed verdict of the submission with provided id',
 	'!download {id}': 'PM this to me to get a submission you submitted',
@@ -38,33 +36,34 @@ var commands = {
 };
 
 module.exports = function(app) {
-	var Submission = require('./submission')(app);
-	var Problem = require('./problem')(app);
+	let Submission = require('./submission')(app);
+	let Problem = require('./problem')(app);
 	/**
 	 * Splits the command into events
 	 */
-	app.on('message', function(message) {
+	app.Dispatcher.on('MESSAGE_CREATE', function(message) {
+		message = message.message;
 		// Not command, pass
-		if (message.author.equals(app.user)) return; // From me
+		if (message.author.id === app.User.id) return; // From me
 		if (!message.channel.isPrivate && message.channel.id !== app.broadcastChannel) return;
 		if (!message.content.length && message.attachments.length === 1 && message.channel.isPrivate) {
 			router.emit('!submit', message, []);
 			return;
 		}
 		if (!message.content.length || message.content.charAt(0) != app.Config.bot.commandPrefix) return;
-		var evtyp = message.content.split(/\s+/);
+		let evtyp = message.content.split(/\s+/);
 		console.log(evtyp);
 		router.emit(evtyp[0], message, evtyp.slice(1));
 	});
 
 	function listProblems(message, args) {
-		if (!allsubs.length) {
+		if (!Object.keys(app.problems).length) {
 			app.sendMessage(message, 'Why am I so lonely? T.T');
 			return;
 		}
 		app.startTyping(message);
 		app.sendMessage(message, 'Problems currently online\n\n').then(function() {
-			var mes = '';
+			let mes = '';
 			return Promise.all(Object.keys(app.problems).map(function(pid, id, arr) {
 				mes += '  ' + app.problems[pid].getTitle() + '\n';
 				if (id % 10 === 9 || id === arr.length - 1) {
@@ -72,10 +71,7 @@ module.exports = function(app) {
 						return app.sendMessage(message, mes), mes = '';
 					}
 				}
-			}))
-			.then(function() {
-				app.stopTyping(message);
-			});
+			}));
 		});
 	}
 
@@ -84,7 +80,7 @@ module.exports = function(app) {
 			files.forEach(function(file) {
 				fs.stat(path.join('problems', file), function(err, stats) {
 					if (stats.isDirectory() && !app.problems[file.toUpperCase()]) {
-						var problem = new Problem(path.join('problems', file), file.toUpperCase());
+						let problem = new Problem(path.join('problems', file), file.toUpperCase());
 						problem.onReady().then(function() {
 							if (problem.ready) {
 								console.log('Problem ' + problem.name + ' ready, ' + problem.testcases.length + ' tests found.');
@@ -96,14 +92,14 @@ module.exports = function(app) {
 			});
 		});
 	}
-	app.on('ready', function() {
+	app.Dispatcher.on('GATEWAY_READY', function() {
 		scanProblems();
 		app.sendMessage(app.broadcastChannel, 'Type !help for more commands!');
 	});
 	// Listeners here
 
 	router.on('!submit', function submit(message, args) {
-		var user = message.author;
+		let user = message.author;
 		if (!message.channel.isPrivate) {
 			app.reply(message, 'Please send your submission to just me :heart: and me alone :heart:');
 			return;
@@ -117,11 +113,11 @@ module.exports = function(app) {
 			return;
 		}
 		if (lastSubmissions[user.id] && (new Date()) - lastSubmissions[user.id] < 1000 * app.Config.submissions.submissionLimit) {
-			var timeLeft = (1000 * app.Config.submissions.submissionLimit - ((new Date()) - lastSubmissions[user.id])) / 1000;
+			let timeLeft = (1000 * app.Config.submissions.submissionLimit - ((new Date()) - lastSubmissions[user.id])) / 1000;
 			app.reply(message, '/tableflip Hush hush, lemme rest a littttle! Wait ' + Math.round(timeLeft) + ' seconds and submit again!');
 			return;
 		}
-		var file = message.attachments[0];
+		let file = message.attachments[0];
 		if (file.size > app.Config.submissions.maxFileSize) {
 			app.reply(message, 'It\'s too large, it will never fit inside me... :cry: The file, I mean.');
 			return;
@@ -130,82 +126,65 @@ module.exports = function(app) {
 			app.reply(message, 'What type of file is this... Black magic?');
 			return;
 		}
-		var problem = (args[0] || path.basename(file.filename, path.extname(file.filename))).toUpperCase();
+		let problem = (args[0] || path.basename(file.filename, path.extname(file.filename))).toUpperCase();
 		if (app.problems[problem] === undefined) {
 			app.reply(message, 'Hmm... Whatever problem you\'re trying to solve, it\'s not here.');
 			return;
 		}
 		lastSubmissions[user.id] = new Date();
 		app.startTyping(message);
-		var filepath = path.join(dir, uuid.v4() + path.extname(file.filename).toLowerCase());
+		let filepath = path.join(dir, uuid.v4() + path.extname(file.filename).toLowerCase());
 		temp.mkdirAsync('').then(function(dirf) {
 			download(file.url, dirf).then(function() {
 				return fs.moveAsync(path.join(dirf, file.filename), filepath);
 			}).then(function() {
-				app.stopTyping(message);
-				var submission = new Submission(user, app.problems[problem], filepath);
+				let submission = new Submission(app.problems[problem], user, filepath);
 				app.submissions[submission.id] = submission;
-				Queue.add_submission(submission);
 				if (!subsBy[user.id]) subsBy[user.id] = [];
 				subsBy[user.id].unshift(submission.id);
 				allsubs.unshift(submission.id);
+				if (allsubs.length > 20) {
+					delete app.submissions[allsubs.pop()];
+				}
 				app.reply(message, 'Your submission (id = ' + md.bold(submission.id + '') + ', problem = ' + md.bold(submission.problem.name) + ', submit time = ' + (new Date()) + ') is now in queue~');
-				app.sendMessage(app.broadcastChannel, submission.getTitle() + ' is now in queue!');
+				app.sendMessage(app.broadcastChannel, submission.getName() + ' is now in queue!');
+				submission.doJudge();
 			});
 		});
 	});
 
-	router.on('!queue', function(message) {
-		if (Queue.submissions.length === 0) {
-			app.sendMessage(message, 'There\'s nothing in queue T.T');
-			return;
-		}
-		app.startTyping(message);
-		var mes = '';
-		Queue.submissions.forEach(function(sub, idx) {
-			if (!idx) mes += md.bold('Now: '); else mes += md.italic(' ' + idx + '.: ');
-			mes += sub.getTitle() + '\n';
-		});
-		app.stopTyping(message).then(function() {
-			app.sendMessage(message, mes);
-		});
-	});
-
 	router.on('!verdict', function(message, args) {
-		var id = args[0];
+		let id = args[0];
 		if (!id || isNaN(Number(id))) {
 			app.sendMessage(message, 'So, what do you want to see? Gimme an id or something');
 			return;
 		}
 		id = Number(id);
 		if (!app.submissions[id]) {
-			app.sendMessage(message, 'Duh, you don\'t even know if it exists!');
+			app.sendMessage(message, 'Duh, you don\'t even know if it exists... or maybe, it\' already ancient...');
 			return;
 		}
-		app.sendMessage(message, app.submissions[id].getVerdict());
+		app.submissions[id].announceVerdict(message.channel);
 	});
 
 	router.on('!details', function(message, args) {
-		app.startTyping(message);
-		var id = args[0];
+		let id = args[0];
 		if (!id || isNaN(Number(id))) {
 			app.sendMessage(message, 'So, what do you want to see? Gimme an id or something');
 			return;
 		}
 		id = Number(id);
 		if (!app.submissions[id]) {
-			app.sendMessage(message, 'Duh, you don\'t even know if it exists!');
+			app.sendMessage(message, 'Duh, you don\'t even know if it exists... or maybe, it\' already ancient...');
 			return;
 		}
-		app.stopTyping(message).then(function() {
-			app.sendMessage(message, app.submissions[id].getFullVerdict());
-		});
+		app.submissions[id].announceVerdict(message.channel);
 	});
 
 	router.on('!problems', listProblems);
 
 	router.on('!problem', function(message, args) {
-		var id = args[0];
+		let id = args[0];
 		if (!id) {
 			app.sendMessage(message, 'So, what do you want to see? Gimme a name or something');
 			return;
@@ -223,7 +202,7 @@ module.exports = function(app) {
 			app.reply(message, 'Please request this to just me :heart: and me alone :heart:');
 			return;
 		}
-		var id = args[0];
+		let id = args[0];
 		if (!id || isNaN(Number(id))) {
 			app.reply(message, 'So, what do you want to see? Gimme an id or something');
 			return;
@@ -233,7 +212,7 @@ module.exports = function(app) {
 			app.reply(message, 'Duh, you don\'t even know if it exists!');
 			return;
 		}
-		var sub = app.submissions[id];
+		let sub = app.submissions[id];
 		if (!sub.user.equals(message.author)) {
 			app.reply(message, 'Uhhh... It\'s not yours :place_of_worship:');
 			return;
@@ -247,7 +226,7 @@ module.exports = function(app) {
 	});
 
 	router.on('!statements', function(message, args) {
-		var id = args[0];
+		let id = args[0];
 		if (!id) {
 			app.sendMessage(message, 'So, what do you want to see? Gimme a name or something');
 			return;
@@ -268,19 +247,17 @@ module.exports = function(app) {
 	});
 
 	router.on('!mysubs', function(message) {
-		var user = message.author.id;
+		let user = message.author.id;
 		if (!subsBy[user] || !subsBy[user].length) {
 			app.sendMessage(message, 'You have an empty cup of submissions... Why bother asking?');
 			return;
 		}
 		app.startTyping(message);
-		var mes = 'Your past submissions:\n\n';
+		let mes = 'Your past submissions:\n\n';
 		subsBy[user].forEach(function(id) {
 			mes += ' ' + md.bold('#' + id) + ' for problem ' + md.bold(app.submissions[id].problem.name) + '\n';
 		});
-		app.stopTyping(message).then(function() {
-			app.sendMessage(message, mes);
-		});
+		app.sendMessage(message, mes);
 	});
 
 	router.on('!allsubs', function(message) {
@@ -289,17 +266,15 @@ module.exports = function(app) {
 			return;
 		}
 		app.startTyping(message);
-		var mes = 'Most recent submissions:\n\n';
+		let mes = 'Most recent submissions:\n\n';
 		allsubs.slice(0, Math.max(10, allsubs.length)).forEach(function(id) {
-			mes += ' ' + app.submissions[id].getTitle() + '\n';
+			mes += ' ' + app.submissions[id].getName() + '\n';
 		});
-		app.stopTyping(message).then(function() {
-			app.sendMessage(message, mes);
-		});
+		app.sendMessage(message, mes);
 	});
 
 	router.on('!help', function(message, args) {
-		var mes = 'Available commands:\n\n';
+		let mes = 'Available commands:\n\n';
 		Object.keys(commands).forEach(function(command){
 			mes += ' ' + md.inlineCode(command) + ': ' + commands[command] + '\n';
 		});
@@ -334,7 +309,9 @@ module.exports = function(app) {
 				app.sendMessage(message, 'Parameter missing?');
 				return;
 			}
-			app.setNickname(message, args.slice(1).join(' ')).then(function() {
+			app.Guilds.get(message.channel.guild_id).members.find((item) => {
+				return item.id === app.User.id;
+			}).setNickname(message, args.slice(1).join(' ')).then(function() {
 				app.sendMessage(message, ':ok_hand:');
 			});
 		}
@@ -358,8 +335,8 @@ module.exports = function(app) {
 			}
 			app.sendMessage(message, 'Attempting to download...');
 			Drive.getFile(args[1]).then(function(stream) {
-				var dlf = temp.createWriteStream();
-				var file = unzip.Extract({ path: path.join(__dirname, '../problems') });
+				let dlf = temp.createWriteStream();
+				let file = unzip.Extract({ path: path.join(__dirname, '../problems') });
 				stream.pipe(dlf);
 				stream.on('error', function() {
 					app.sendMessage(message, 'Can\'t download file :(');
