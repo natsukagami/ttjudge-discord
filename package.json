@@ -4,8 +4,8 @@
   "description": "A discord bot that runs as an online judge for competitive programming",
   "main": "index.js",
   "dependencies": {
-    "bluebird": "^3.4.0",
-    "discord.js": "hydrabolt/discord.js#indev",
+    "bluebird": "^3.4.6",
+    "discordie": "^0.8.1",
     "download": "^5.0.0",
     "fs-extra": "^0.30.0",
     "google-auth-library": "^0.9.8",

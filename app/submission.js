@@ -1,4 +1,3 @@
-const kjudge = require('kjudge-api');
 const path = require('path');
 const fs = Promise.promisifyAll(require('fs'));
 let Verdict = {};
@@ -36,7 +35,6 @@ let md = require('markdown-creator');
 md.inlineCode = function(text) {
 	return '`' + text + '`';
 };
-let Runner = require('./runner');
 
 const languagesByExt = {
 	'.cpp': 'C++'

@@ -2,7 +2,6 @@ var fs = Promise.promisifyAll(require('fs-extra'));
 fs.walk = require('walk').walk;
 var path = require('path');
 var md = require('markdown-creator');
-var kjudge = require('kjudge-api');
 
 module.exports = function(app) {
 	/**
@@ -59,6 +58,7 @@ module.exports = function(app) {
 						reads[2]
 					);
 					this.testInfo.forEach((item) => { this.Problem.pushTest(item); });
+					this.name = this.name.toUpperCase();
 				});
 			})
 			.then(function() {

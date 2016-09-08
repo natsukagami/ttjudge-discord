@@ -80,7 +80,7 @@ module.exports = function(app) {
 			files.forEach(function(file) {
 				fs.stat(path.join('problems', file), function(err, stats) {
 					if (stats.isDirectory() && !app.problems[file.toUpperCase()]) {
-						let problem = new Problem(path.join('problems', file), file.toUpperCase());
+						let problem = new Problem(path.join('problems', file), file);
 						problem.onReady().then(function() {
 							if (problem.ready) {
 								console.log('Problem ' + problem.name + ' ready, ' + problem.testcases.length + ' tests found.');
