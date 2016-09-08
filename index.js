@@ -1,8 +1,5 @@
 // Use bluebird's promise for better quality and polyfill-less environment
 global.Promise = require('bluebird');
-global.kjudge = require('kjudge-api')({
-	problemsPath: '/home/natsukagami/Projects/ttjudge-discord/problems'
-});
 const fs = require('fs');
 const path = require('path');
 const jsonminify = require('jsonminify');
@@ -23,6 +20,8 @@ app.connect({token: app.Config.connection.token});
 app.startTyping = (origin) => {
 	return origin.channel.sendTyping();
 };
+
+global.kjudge = require('kjudge-api')(app.Config.judge);
 
 var Problem = require('./app/problem')(app);
 
